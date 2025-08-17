@@ -1,0 +1,239 @@
+/* Dashboard Cards */
+.dashboard-card {
+  @apply relative p-6 bg-gradient-to-br rounded-2xl shadow-xl border backdrop-blur-sm transition-all duration-300 hover:shadow-2xl hover:-translate-y-1;
+}
+
+.dashboard-card-primary {
+  @apply dashboard-card from-primary-500/10 to-primary-600/5 border-primary-200 dark:border-primary-800;
+}
+
+.dashboard-card-success {
+  @apply dashboard-card from-success-500/10 to-success-600/5 border-success-200 dark:border-success-800;
+}
+
+.dashboard-card-warning {
+  @apply dashboard-card from-warning-500/10 to-warning-600/5 border-warning-200 dark:border-warning-800;
+}
+
+.dashboard-card-danger {
+  @apply dashboard-card from-danger-500/10 to-danger-600/5 border-danger-200 dark:border-danger-800;
+}
+
+.dashboard-card-info {
+  @apply dashboard-card from-blue-500/10 to-blue-600/5 border-blue-200 dark:border-blue-800;
+}
+
+/* Icon containers */
+.icon-container {
+  @apply w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300;
+}
+
+.icon-container-primary {
+  @apply icon-container bg-primary-500/20 text-primary-600 dark:text-primary-400;
+}
+
+.icon-container-success {
+  @apply icon-container bg-success-500/20 text-success-600 dark:text-success-400;
+}
+
+.icon-container-warning {
+  @apply icon-container bg-warning-500/20 text-warning-600 dark:text-warning-400;
+}
+
+.icon-container-danger {
+  @apply icon-container bg-danger-500/20 text-danger-600 dark:text-danger-400;
+}
+
+/* Sidebar moderne - CORRIGÉE POUR ÊTRE COHÉRENTE */
+.sidebar-modern {
+  @apply fixed left-0 top-0 h-full w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 shadow-xl z-40 transition-transform duration-300;
+}
+
+.sidebar-logo {
+  @apply flex items-center gap-3 px-6 py-6 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-primary-500 to-primary-600;
+}
+
+.sidebar-nav {
+  @apply py-4 space-y-1;
+}
+
+.sidebar-link {
+  @apply flex items-center gap-3 px-6 py-3 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all duration-200 relative mx-2 rounded-lg;
+}
+
+.sidebar-link.active {
+  @apply text-primary-700 dark:text-primary-300 bg-primary-100 dark:bg-primary-900/30 font-medium;
+}
+
+.sidebar-link.active::before {
+  content: '';
+  @apply absolute left-0 top-0 h-full w-1 bg-primary-500 rounded-r-full;
+}
+
+/* Header moderne */
+.header-modern {
+  @apply fixed top-0 right-0 left-64 h-16 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 z-30 px-6 flex items-center justify-between;
+}
+
+/* Content area */
+.main-content {
+  @apply ml-64 mt-16 p-6 min-h-screen bg-gray-50 dark:bg-gray-950;
+}
+
+/* Search bar moderne */
+.search-bar {
+  @apply relative w-full max-w-md;
+}
+
+.search-input {
+  @apply w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:bg-white dark:focus:bg-gray-700 transition-all duration-200;
+}
+
+.search-icon {
+  @apply absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4;
+}
+
+/* User menu */
+.user-menu {
+  @apply flex items-center gap-3;
+}
+
+.user-avatar {
+  @apply w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-semibold shadow-lg;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar-modern {
+    @apply -translate-x-full;
+  }
+  
+  .sidebar-modern.open {
+    @apply translate-x-0;
+  }
+  
+  .header-modern {
+    @apply left-0;
+  }
+  
+  .main-content {
+    @apply ml-0;
+  }
+}
+
+/* Dark mode toggle */
+.dark-mode-toggle {
+  @apply p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200;
+}
+
+/* Activity indicator */
+.activity-indicator {
+  @apply flex items-center gap-2 px-3 py-1.5 bg-success-100 dark:bg-success-900/30 text-success-700 dark:text-success-300 rounded-full text-sm font-medium;
+}
+
+.activity-dot {
+  @apply w-2 h-2 bg-success-500 rounded-full animate-pulse;
+}
+
+/* Charts container */
+.chart-container {
+  @apply bg-white dark:bg-gray-900 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 overflow-hidden transition-all duration-300 hover:shadow-xl p-6;
+}
+
+.chart-header {
+  @apply flex items-center justify-between mb-4;
+}
+
+.chart-title {
+  @apply text-lg font-semibold text-gray-900 dark:text-gray-100;
+}
+
+/* Empty states */
+.empty-state {
+  @apply flex flex-col items-center justify-center py-12 text-center;
+}
+
+.empty-state-icon {
+  @apply w-16 h-16 text-gray-400 dark:text-gray-600 mb-4;
+}
+
+.empty-state-title {
+  @apply text-lg font-medium text-gray-900 dark:text-gray-100 mb-2;
+}
+
+.empty-state-description {
+  @apply text-sm text-gray-500 dark:text-gray-400 max-w-sm;
+}
+
+/* Loading states */
+.loading-spinner {
+  @apply flex items-center justify-center py-12;
+}
+
+.loading-spinner svg {
+  @apply w-8 h-8 text-primary-500 animate-spin;
+}
+
+/* Dropdown menus - AMÉLIORÉS */
+.dropdown-menu {
+  @apply absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50;
+}
+
+.dropdown-item {
+  @apply px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 cursor-pointer;
+}
+
+.dropdown-divider {
+  @apply my-1 border-t border-gray-200 dark:border-gray-700;
+}
+
+/* Modal */
+.modal-overlay {
+  @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+}
+
+.modal-content {
+  @apply bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-auto;
+}
+
+.modal-header {
+  @apply px-6 py-4 border-b border-gray-200 dark:border-gray-800;
+}
+
+.modal-body {
+  @apply p-6;
+}
+
+.modal-footer {
+  @apply px-6 py-4 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-3;
+}
+
+/* Tabs */
+.tabs {
+  @apply flex space-x-1 border-b border-gray-200 dark:border-gray-800;
+}
+
+.tab {
+  @apply px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border-b-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200;
+}
+
+.tab.active {
+  @apply text-primary-600 dark:text-primary-400 border-primary-500;
+}
+
+/* Breadcrumbs */
+.breadcrumbs {
+  @apply flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400;
+}
+
+.breadcrumb-separator {
+  @apply text-gray-400 dark:text-gray-600;
+}
+
+.breadcrumb-item {
+  @apply hover:text-gray-700 dark:hover:text-gray-300 transition-colors duration-200;
+}
+
+.breadcrumb-item.active {
+  @apply text-gray-900 dark:text-gray-100 font-medium;
+}
