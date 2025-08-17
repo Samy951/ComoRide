@@ -7,7 +7,13 @@ export enum ConversationState {
   BOOKING_CONFIRM = 'BOOKING_CONFIRM',
   BOOKING_WAITING = 'BOOKING_WAITING',
   HISTORY_VIEW = 'HISTORY_VIEW',
-  HELP_MODE = 'HELP_MODE'
+  HELP_MODE = 'HELP_MODE',
+  // Driver states
+  DRIVER_MENU = 'DRIVER_MENU',
+  DRIVER_AVAILABILITY = 'DRIVER_AVAILABILITY',
+  DRIVER_BOOKING_NOTIFY = 'DRIVER_BOOKING_NOTIFY',
+  DRIVER_BOOKING_ACCEPT = 'DRIVER_BOOKING_ACCEPT',
+  DRIVER_TRIP_STATUS = 'DRIVER_TRIP_STATUS'
 }
 
 export interface ConversationData {
@@ -19,6 +25,12 @@ export interface ConversationData {
   currentBookingId?: string | null;
   retryCount?: number;
   lastActionAt?: Date;
+  // Driver specific data
+  isDriverMode?: boolean;
+  currentBookingNotification?: string | null;
+  bookingNotificationTimeout?: Date | null;
+  availabilityToggleCount?: number;
+  temporaryClientMode?: boolean;
   [key: string]: any;
 }
 

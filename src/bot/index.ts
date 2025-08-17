@@ -1,6 +1,7 @@
 import { WhatsAppService } from './services/whatsapp.service';
 import { ReconnectionService } from './services/reconnection.service';
 import { NotificationService } from './services/notification.service';
+import { DriverNotificationService } from './services/driver-notification.service';
 import { MessageHandler } from './handlers/message.handler';
 import { ErrorHandler } from './handlers/error.handler';
 import { SessionManager } from './states/session.manager';
@@ -11,6 +12,7 @@ export class WhatsAppBot {
   private whatsappService!: WhatsAppService;
   private reconnectionService!: ReconnectionService;
   private notificationService!: NotificationService;
+  private driverNotificationService!: DriverNotificationService;
   private messageHandler!: MessageHandler;
   private errorHandler!: ErrorHandler;
   private sessionManager!: SessionManager;
@@ -26,6 +28,7 @@ export class WhatsAppBot {
     this.whatsappService = new WhatsAppService();
     this.reconnectionService = ReconnectionService.getInstance();
     this.notificationService = NotificationService.getInstance();
+    this.driverNotificationService = DriverNotificationService.getInstance();
     this.errorHandler = ErrorHandler.getInstance();
     this.sessionManager = SessionManager.getInstance();
     this.timeoutManager = TimeoutManager.getInstance();
@@ -44,6 +47,7 @@ export class WhatsAppBot {
     // Inject WhatsApp service into other services
     this.reconnectionService.setWhatsAppService(this.whatsappService);
     this.notificationService.setWhatsAppService(this.whatsappService);
+    this.driverNotificationService.setWhatsAppService(this.whatsappService);
     this.errorHandler.setWhatsAppService(this.whatsappService);
     this.timeoutManager.setMessageService(this.whatsappService);
   }

@@ -6,6 +6,8 @@ import {
   AcceptBookingResponse, 
   CancelBookingResponse 
 } from '../types/api.types';
+import { DriverNotificationService } from '../bot/services/driver-notification.service';
+import logger from '../config/logger';
 
 const prisma = new PrismaClient();
 
@@ -14,6 +16,9 @@ export class BookingService {
     customerId: string,
     data: CreateBookingRequest
   ): Promise<BookingResponse> {
+    // Calculate estimated fare based on distance/zones
+    const estimatedFare = await this.calculateEstimatedFare(data);
+    
     const booking = await prisma.booking.create({
       data: {
         customerId,
@@ -26,6 +31,7 @@ export class BookingService {
         pickupTime: new Date(data.pickupTime),
         passengers: data.passengers,
         notes: data.notes,
+        estimatedFare,
         status: BookingStatus.PENDING
       },
       select: {
@@ -39,6 +45,33 @@ export class BookingService {
         createdAt: true
       }
     });
+
+    // Notify available drivers
+    try {
+      const driverNotificationService = DriverNotificationService.getInstance();
+      const fullBooking = await prisma.booking.findUnique({
+        where: { id: booking.id }
+      });
+      
+      if (fullBooking) {
+        const result = await driverNotificationService.broadcastToAvailableDrivers(fullBooking, {
+          maxDrivers: 5,
+          maxDistance: 20 // 20km radius initially
+        });
+        
+        logger.info('Driver notification broadcast completed', {
+          bookingId: booking.id,
+          notifiedDrivers: result.notifiedDrivers,
+          errors: result.errors.length
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to notify drivers for new booking', {
+        bookingId: booking.id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      // Don't fail booking creation if notification fails
+    }
 
     return {
       id: booking.id,
@@ -133,6 +166,18 @@ export class BookingService {
       }
     });
 
+    // Notify driver notification service of acceptance
+    try {
+      const driverNotificationService = DriverNotificationService.getInstance();
+      await driverNotificationService.confirmBookingAcceptance(bookingId, driverId);
+    } catch (error) {
+      logger.error('Failed to confirm booking acceptance in notification service', {
+        bookingId,
+        driverId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+
     return {
       id: updatedBooking.id,
       status: "ACCEPTED",
@@ -180,6 +225,68 @@ export class BookingService {
       cancellationReason: updatedBooking.cancellationReason!,
       updatedAt: updatedBooking.updatedAt.toISOString()
     };
+  }
+
+  private static async calculateEstimatedFare(data: CreateBookingRequest): Promise<number> {
+    // Simplified fare calculation - in production this would be more sophisticated
+    let baseFare = 1500; // Base fare in KMF
+    
+    // Determine if inter-zone or intra-zone
+    const pickupZone = this.determineZone(data.pickupLat, data.pickupLng);
+    const dropZone = this.determineZone(data.dropLat, data.dropLng);
+    
+    if (pickupZone !== dropZone) {
+      baseFare = 2500; // Inter-zone fare
+    }
+    
+    // Airport supplement
+    if (this.isAirportLocation(data.pickupAddress) || this.isAirportLocation(data.dropAddress)) {
+      baseFare += 1000;
+    }
+    
+    // Time-based supplements
+    const pickupTime = new Date(data.pickupTime);
+    const hour = pickupTime.getHours();
+    
+    if (hour >= 22 || hour < 6) {
+      baseFare += 500; // Night supplement
+    }
+    
+    // Passenger supplement
+    if (data.passengers > 2) {
+      baseFare += (data.passengers - 2) * 200;
+    }
+    
+    return Math.round(baseFare);
+  }
+
+  private static determineZone(lat?: number, lng?: number): string {
+    if (!lat || !lng) return 'unknown';
+    
+    // Simplified zone determination for Comoros
+    // Grande Comore
+    if (lat >= -11.9 && lat <= -11.3 && lng >= 43.2 && lng <= 43.5) {
+      return 'grande_comore';
+    }
+    
+    // Anjouan
+    if (lat >= -12.4 && lat <= -12.0 && lng >= 44.3 && lng <= 44.6) {
+      return 'anjouan';
+    }
+    
+    // Mohéli
+    if (lat >= -12.4 && lat <= -12.2 && lng >= 43.7 && lng <= 44.0) {
+      return 'moheli';
+    }
+    
+    return 'unknown';
+  }
+
+  private static isAirportLocation(address: string): boolean {
+    const airportKeywords = ['aéroport', 'airport', 'hahaya', 'ouani', 'prince said ibrahim'];
+    return airportKeywords.some(keyword => 
+      address.toLowerCase().includes(keyword)
+    );
   }
 
   private static maskPhoneNumber(phoneNumber: string): string {

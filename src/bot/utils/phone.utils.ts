@@ -6,6 +6,11 @@ export class PhoneUtils {
     // Remove all non-digit characters
     cleaned = cleaned.replace(/\D/g, '');
     
+    // Handle French numbers for testing (33...)
+    if (cleaned.startsWith('33')) {
+      return `+${cleaned}`;
+    }
+    
     // Handle Comoros country code
     if (cleaned.startsWith('269')) {
       return `+${cleaned}`;
@@ -47,6 +52,12 @@ export class PhoneUtils {
 
   static isValidComorosNumber(phoneNumber: string): boolean {
     const normalized = this.normalizePhoneNumber(phoneNumber);
+    
+    // TODO: PRODUCTION - Remove this French numbers support
+    // TEMPORARY: Accept French numbers for testing
+    if (normalized.startsWith('+33')) {
+      return /^\+33[0-9]{9}$/.test(normalized);
+    }
     
     // Comoros numbers: +269 followed by 7 digits starting with 3 or 7
     const comorosPattern = /^\+269[37]\d{6}$/;

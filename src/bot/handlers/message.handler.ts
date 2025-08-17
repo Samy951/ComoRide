@@ -6,9 +6,11 @@ import { WhatsAppService } from '../services/whatsapp.service';
 import { PhoneUtils } from '../utils/phone.utils';
 import { ValidationUtils } from '../utils/validation.utils';
 import { MenuHandler } from './menu.handler';
+import { DriverHandler } from './driver.handler';
 import { BookingFlow } from '../flows/booking.flow';
 import { HistoryFlow } from '../flows/history.flow';
 import { HelpFlow } from '../flows/help.flow';
+import { AuthService } from '../../services/auth.service';
 import logger from '../../config/logger';
 
 export class MessageHandler {
@@ -16,6 +18,7 @@ export class MessageHandler {
   private timeoutManager: TimeoutManager;
   private whatsappService: WhatsAppService;
   private menuHandler: MenuHandler;
+  private driverHandler: DriverHandler;
   private bookingFlow: BookingFlow;
   private historyFlow: HistoryFlow;
   private helpFlow: HelpFlow;
@@ -27,6 +30,7 @@ export class MessageHandler {
     
     // Initialize handlers and flows
     this.menuHandler = new MenuHandler(whatsappService);
+    this.driverHandler = new DriverHandler(whatsappService);
     this.bookingFlow = new BookingFlow(whatsappService);
     this.historyFlow = new HistoryFlow(whatsappService);
     this.helpFlow = new HelpFlow(whatsappService);
@@ -46,13 +50,16 @@ export class MessageHandler {
       // Get current session
       const session = await this.sessionManager.getSession(phoneNumber);
       
+      // Detect user type and route accordingly
+      const userType = await this.detectUserType(phoneNumber, messageText, session);
+      
       // Check for global commands first
-      if (await this.handleGlobalCommands(phoneNumber, messageText)) {
+      if (await this.handleGlobalCommands(phoneNumber, messageText, userType)) {
         return;
       }
       
-      // Route message based on current state
-      await this.routeMessage(phoneNumber, messageText, session.currentState);
+      // Route message based on user type and current state
+      await this.routeMessage(phoneNumber, messageText, session.currentState, userType);
       
       // Log processing time
       const processingTime = Date.now() - startTime;
@@ -71,12 +78,66 @@ export class MessageHandler {
     }
   }
 
-  private async handleGlobalCommands(phoneNumber: string, messageText: string): Promise<boolean> {
+  private async detectUserType(phoneNumber: string, messageText: string, session: any): Promise<'driver' | 'customer' | 'unknown'> {
+    try {
+      // Check if user is in temporary client mode (driver acting as client)
+      if (session.conversationData.temporaryClientMode) {
+        return 'customer';
+      }
+
+      // Check explicit client mode commands from drivers
+      const lowerText = messageText.toLowerCase().trim();
+      const clientCommands = ['réserver', 'booking', 'course', 'client', 'mode client'];
+      if (clientCommands.some(cmd => lowerText.includes(cmd))) {
+        const user = await AuthService.findUserByPhone(phoneNumber);
+        if (user?.type === 'driver') {
+          // Driver wants to use client mode
+          await this.driverHandler.switchToClientMode(phoneNumber);
+          return 'customer';
+        }
+      }
+
+      // Get user from database
+      const user = await AuthService.findUserByPhone(phoneNumber);
+      
+      if (!user) {
+        return 'unknown';
+      }
+
+      // If driver and not explicitly requesting client mode, default to driver mode
+      if (user.type === 'driver') {
+        // Initialize driver mode if not already set
+        if (!session.conversationData.isDriverMode) {
+          await this.driverHandler.initializeDriverMode(phoneNumber);
+        }
+        return 'driver';
+      }
+
+      return 'customer';
+    } catch (error) {
+      logger.error('Failed to detect user type', {
+        phoneNumber: PhoneUtils.maskPhoneNumber(phoneNumber),
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return 'unknown';
+    }
+  }
+
+  private async handleGlobalCommands(phoneNumber: string, messageText: string, userType: 'driver' | 'customer' | 'unknown'): Promise<boolean> {
     const lowerText = messageText.toLowerCase();
     
-    // Menu/Home commands
+    // Menu/Home commands - route based on user type
     if (ValidationUtils.isMenuCommand(lowerText)) {
-      await this.menuHandler.showMainMenu(phoneNumber);
+      if (userType === 'driver' && !await this.driverHandler.isDriverInClientMode(phoneNumber)) {
+        await this.driverHandler.initializeDriverMode(phoneNumber);
+      } else {
+        await this.menuHandler.showMainMenu(phoneNumber);
+      }
+      return true;
+    }
+
+    // Driver-specific global commands
+    if (userType === 'driver' && await this.driverHandler.handleGlobalDriverCommands(phoneNumber, messageText)) {
       return true;
     }
     
@@ -101,7 +162,14 @@ export class MessageHandler {
     return false;
   }
 
-  private async routeMessage(phoneNumber: string, messageText: string, currentState: ConversationState): Promise<void> {
+  private async routeMessage(phoneNumber: string, messageText: string, currentState: ConversationState, userType: 'driver' | 'customer' | 'unknown'): Promise<void> {
+    // Route driver states to driver handler
+    if (this.isDriverState(currentState)) {
+      await this.driverHandler.handleDriverMessage(phoneNumber, messageText, currentState);
+      return;
+    }
+
+    // Route customer/unknown users to existing flows
     switch (currentState) {
       case ConversationState.MENU:
         await this.menuHandler.handleMenuSelection(phoneNumber, messageText);
@@ -140,13 +208,31 @@ export class MessageHandler {
         break;
         
       default:
-        // Unknown state, reset to menu
+        // Unknown state, reset to appropriate menu based on user type
         logger.warn('Unknown conversation state, resetting to menu', {
           phoneNumber: PhoneUtils.maskPhoneNumber(phoneNumber),
-          state: currentState
+          state: currentState,
+          userType
         });
-        await this.menuHandler.showMainMenu(phoneNumber);
+        
+        if (userType === 'driver') {
+          await this.driverHandler.initializeDriverMode(phoneNumber);
+        } else {
+          await this.menuHandler.showMainMenu(phoneNumber);
+        }
     }
+  }
+
+  private isDriverState(state: ConversationState): boolean {
+    const driverStates = [
+      ConversationState.DRIVER_MENU,
+      ConversationState.DRIVER_AVAILABILITY,
+      ConversationState.DRIVER_BOOKING_NOTIFY,
+      ConversationState.DRIVER_BOOKING_ACCEPT,
+      ConversationState.DRIVER_TRIP_STATUS
+    ];
+    
+    return driverStates.includes(state);
   }
 
   private async handleBookingWaiting(phoneNumber: string, messageText: string): Promise<void> {

@@ -1,5 +1,6 @@
 // Removed unused import
 import { SessionManager } from '../states/session.manager';
+import { ConversationState } from '../states/state.types';
 import { WhatsAppService } from '../services/whatsapp.service';
 import { MessageFormatter } from '../utils/message.formatter';
 import { ValidationUtils } from '../utils/validation.utils';
@@ -29,7 +30,16 @@ export class MenuHandler {
 
   async showMainMenu(phoneNumber: string, customMessage?: string): Promise<void> {
     try {
-      // Reset session to menu state
+      // Check if user is a driver in temporary client mode
+      const user = await AuthService.findUserByPhone(phoneNumber);
+      const session = await this.sessionManager.getSession(phoneNumber);
+      
+      if (user?.type === 'driver' && session.conversationData.temporaryClientMode) {
+        await this.showDriverClientMenu(phoneNumber, customMessage, user.name);
+        return;
+      }
+      
+      // Reset session to menu state for regular customers
       await this.sessionManager.resetSession(phoneNumber);
       
       // Get customer name if available
@@ -40,7 +50,8 @@ export class MenuHandler {
       
       logger.info('Main menu displayed', {
         phoneNumber: PhoneUtils.maskPhoneNumber(phoneNumber),
-        hasCustomerName: !!customerName
+        hasCustomerName: !!customerName,
+        userType: user?.type || 'unknown'
       });
     } catch (error) {
       logger.error('Failed to show main menu', {
@@ -56,6 +67,15 @@ export class MenuHandler {
 
   async handleMenuSelection(phoneNumber: string, input: string): Promise<void> {
     try {
+      // Check if driver in client mode has special options
+      const user = await AuthService.findUserByPhone(phoneNumber);
+      const session = await this.sessionManager.getSession(phoneNumber);
+      
+      if (user?.type === 'driver' && session.conversationData.temporaryClientMode) {
+        await this.handleDriverClientMenuSelection(phoneNumber, input, user.name);
+        return;
+      }
+
       if (!ValidationUtils.isMenuOption(input)) {
         await this.handleInvalidMenuInput(phoneNumber, input);
         return;
@@ -297,5 +317,100 @@ ${MessageFormatter.formatWelcomeMenu(customerName)}`;
       phoneNumber: PhoneUtils.maskPhoneNumber(phoneNumber),
       customerName
     });
+  }
+
+  // New methods for driver client mode
+  private async showDriverClientMenu(phoneNumber: string, customMessage?: string, driverName?: string): Promise<void> {
+    // Reset to menu state but keep client mode flag
+    await this.sessionManager.setState(phoneNumber, ConversationState.MENU);
+    
+    const name = driverName || 'Chauffeur';
+    
+    const message = customMessage || `👤 *MODE CLIENT - ${name}*
+
+Vous pouvez réserver une course comme un client :
+
+*1* - 🚗 Réserver une course
+*2* - 📋 Mon historique client  
+*3* - ❓ Aide
+*9* - 🔄 Retour mode chauffeur
+
+*0* - 🔄 Actualiser`;
+
+    await this.whatsappService.sendMessage(phoneNumber, message);
+    
+    logger.info('Driver client menu displayed', {
+      phoneNumber: PhoneUtils.maskPhoneNumber(phoneNumber),
+      driverName: name
+    });
+  }
+
+  private async handleDriverClientMenuSelection(phoneNumber: string, input: string, driverName: string): Promise<void> {
+    if (!ValidationUtils.isMenuOption(input)) {
+      await this.handleInvalidMenuInput(phoneNumber, input);
+      return;
+    }
+
+    const option = ValidationUtils.parseMenuOption(input);
+    
+    switch (option) {
+      case 1:
+        // Start booking flow as client
+        await this.bookingFlow.handleBookingStart(phoneNumber);
+        break;
+        
+      case 2:
+        // Show client history (only customer bookings)
+        await this.historyFlow.handleHistoryView(phoneNumber);
+        break;
+        
+      case 3:
+        // Show help
+        await this.helpFlow.handleHelpMode(phoneNumber);
+        break;
+        
+      case 9:
+        // Return to driver mode
+        await this.returnToDriverMode(phoneNumber, driverName);
+        break;
+        
+      case 0:
+        // Show menu again (refresh)
+        await this.showDriverClientMenu(phoneNumber, undefined, driverName);
+        break;
+        
+      default:
+        await this.handleInvalidMenuInput(phoneNumber, input);
+    }
+    
+    logger.info('Driver client menu selection processed', {
+      phoneNumber: PhoneUtils.maskPhoneNumber(phoneNumber),
+      selectedOption: option,
+      driverName
+    });
+  }
+
+  private async returnToDriverMode(phoneNumber: string, driverName: string): Promise<void> {
+    try {
+      // Import DriverHandler dynamically to avoid circular dependency
+      const { DriverHandler } = await import('./driver.handler');
+      const driverHandler = new DriverHandler(this.whatsappService);
+      
+      await driverHandler.returnToDriverMode(phoneNumber);
+      
+      logger.info('Driver returned to driver mode from client menu', {
+        phoneNumber: PhoneUtils.maskPhoneNumber(phoneNumber),
+        driverName
+      });
+    } catch (error) {
+      logger.error('Failed to return to driver mode', {
+        phoneNumber: PhoneUtils.maskPhoneNumber(phoneNumber),
+        driverName,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      
+      // Fallback - show regular menu
+      await this.showMainMenu(phoneNumber);
+    }
   }
 }

@@ -20,7 +20,7 @@ export class WhatsAppService {
   private initializeClient(): void {
     this.client = new Client({
       authStrategy: new LocalAuth({
-        clientId: 'como-ride-bot',
+        clientId: 'como-ride-bot-' + Date.now(), // Force new session
         dataPath: whatsappConfig.sessionPath
       }),
       puppeteer: whatsappConfig.clientOptions.puppeteer
@@ -32,9 +32,14 @@ export class WhatsAppService {
   private setupEventHandlers(): void {
     this.client.on('qr', (qr: string) => {
       logger.info('WhatsApp QR Code generated');
-      console.log('\n🔗 WhatsApp QR Code:');
+      console.log('\n' + '='.repeat(50));
+      console.log('🔗 WHATSAPP QR CODE POUR COMO RIDE BOT');
+      console.log('='.repeat(50));
       qrcode.generate(qr, { small: true });
-      console.log('\nScan this QR code with your WhatsApp to connect Como Ride bot');
+      console.log('='.repeat(50));
+      console.log('📱 Scannez ce QR code avec votre WhatsApp');
+      console.log('⏰ Le QR code expire dans 45 secondes');
+      console.log('='.repeat(50) + '\n');
     });
 
     this.client.on('ready', () => {

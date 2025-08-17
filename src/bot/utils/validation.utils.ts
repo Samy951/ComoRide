@@ -158,4 +158,65 @@ export class ValidationUtils {
     
     return null;
   }
+
+  // Driver-specific validations
+  static isYesOption(input: string): boolean {
+    const trimmed = input.trim().toLowerCase();
+    return ['oui', 'yes', 'y', 'o', '1', 'accepter', 'ok'].includes(trimmed);
+  }
+
+  static isNoOption(input: string): boolean {
+    const trimmed = input.trim().toLowerCase();
+    return ['non', 'no', 'n', '2', 'refuser', 'refus'].includes(trimmed);
+  }
+
+  static isDriverCommand(input: string): boolean {
+    const trimmed = input.trim().toLowerCase();
+    const driverCommands = [
+      'disponible', 'dispo', 'occupé', 'busy',
+      'courses', 'mes courses', 'trajets',
+      'client', 'mode client', 'réserver',
+      'chauffeur', 'driver'
+    ];
+    
+    return driverCommands.some(cmd => trimmed.includes(cmd));
+  }
+
+  static isAvailabilityCommand(input: string): boolean {
+    const trimmed = input.trim().toLowerCase();
+    return ['disponible', 'dispo', 'occupé', 'busy', 'libre', 'pas libre'].includes(trimmed);
+  }
+
+  static parseAvailabilityCommand(input: string): boolean | null {
+    const trimmed = input.trim().toLowerCase();
+    
+    if (['disponible', 'dispo', 'libre'].includes(trimmed)) {
+      return true;
+    }
+    
+    if (['occupé', 'busy', 'pas libre'].includes(trimmed)) {
+      return false;
+    }
+    
+    return null;
+  }
+
+  static isValidDriverMenuOption(input: string): boolean {
+    const trimmed = input.trim();
+    return /^[0-9]$/.test(trimmed) && ['0', '1', '2', '3', '4', '5', '9'].includes(trimmed);
+  }
+
+  static isValidPhoneNumber(phoneNumber: string): boolean {
+    // TODO: PRODUCTION - Remove French numbers support and keep only Comoros
+    const cleaned = phoneNumber.replace(/\D/g, '');
+    
+    // TEMPORARY: Accept French numbers for testing (+33...)
+    if (cleaned.startsWith('33')) {
+      return /^33[0-9]{9}$/.test(cleaned);
+    }
+    
+    // Comoros numbers are typically +269 followed by 7 digits
+    // Also accept local format with 7 digits
+    return /^(269)?[0-9]{7}$/.test(cleaned);
+  }
 }
