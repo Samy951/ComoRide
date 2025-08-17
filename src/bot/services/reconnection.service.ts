@@ -3,7 +3,7 @@ import { SessionManager } from '../states/session.manager';
 import { TimeoutManager } from '../states/timeout.manager';
 import { MessageFormatter } from '../utils/message.formatter';
 import { ConversationState } from '../states/state.types';
-import logger from '@config/logger';
+import logger from '../../config/logger';
 
 export class ReconnectionService {
   private static instance: ReconnectionService;

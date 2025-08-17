@@ -7,7 +7,10 @@
       "Bash(npm test:*)",
       "Bash(npm install:*)",
       "Bash(npx prisma migrate dev:*)",
-      "Bash(git init:*)"
+      "Bash(git init:*)",
+      "Bash(sudo apt:*)",
+      "Bash(sudo apt install:*)",
+      "Bash(mv:*)"
     ],
     "deny": [],
     "ask": []

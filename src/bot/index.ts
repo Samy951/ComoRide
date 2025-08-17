@@ -5,7 +5,7 @@ import { MessageHandler } from './handlers/message.handler';
 import { ErrorHandler } from './handlers/error.handler';
 import { SessionManager } from './states/session.manager';
 import { TimeoutManager } from './states/timeout.manager';
-import logger from '@config/logger';
+import logger from '../config/logger';
 
 export class WhatsAppBot {
   private whatsappService!: WhatsAppService;

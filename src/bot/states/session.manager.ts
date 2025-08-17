@@ -1,5 +1,5 @@
-import prisma from '@config/database';
-import logger from '@config/logger';
+import prisma from '../../config/database';
+import logger from '../../config/logger';
 import { ConversationState, ConversationData, UserSessionData } from './state.types';
 import { sessionConfig } from '../config/session.config';
 

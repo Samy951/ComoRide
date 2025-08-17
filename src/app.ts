@@ -1,6 +1,7 @@
 import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import path from 'path';
 import routes from './routes/index';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import { phoneRateLimit } from './middleware/rateLimiter.middleware';
@@ -36,6 +37,14 @@ app.use((req, _res, next) => {
 
 // API routes
 app.use('/api/v1', routes);
+
+// Serve admin interface static files
+app.use('/admin', express.static(path.join(__dirname, '../public/admin')));
+
+// Admin SPA fallback - serve index.html for all admin routes
+app.get('/admin/*', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/admin/index.html'));
+});
 
 // Root endpoint
 app.get('/', (_req, res) => {

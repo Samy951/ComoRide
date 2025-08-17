@@ -1,6 +1,6 @@
 import { Client, LocalAuth, Message } from 'whatsapp-web.js';
 import qrcode from 'qrcode-terminal';
-import logger from '@config/logger';
+import logger from '../../config/logger';
 import { whatsappConfig } from '../config/whatsapp.config';
 import { PhoneUtils } from '../utils/phone.utils';
 

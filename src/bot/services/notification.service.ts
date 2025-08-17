@@ -1,6 +1,6 @@
 import { WhatsAppService } from './whatsapp.service';
 import { MessageFormatter } from '../utils/message.formatter';
-import logger from '@config/logger';
+import logger from '../../config/logger';
 
 export class NotificationService {
   private static instance: NotificationService;

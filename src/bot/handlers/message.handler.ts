@@ -9,7 +9,7 @@ import { MenuHandler } from './menu.handler';
 import { BookingFlow } from '../flows/booking.flow';
 import { HistoryFlow } from '../flows/history.flow';
 import { HelpFlow } from '../flows/help.flow';
-import logger from '@config/logger';
+import logger from '../../config/logger';
 
 export class MessageHandler {
   private sessionManager: SessionManager;

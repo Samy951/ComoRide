@@ -2,7 +2,7 @@ import { WhatsAppService } from '../services/whatsapp.service';
 import { SessionManager } from '../states/session.manager';
 import { MessageFormatter } from '../utils/message.formatter';
 import { PhoneUtils } from '../utils/phone.utils';
-import logger from '@config/logger';
+import logger from '../../config/logger';
 
 export enum ErrorType {
   NETWORK_ERROR = 'NETWORK_ERROR',

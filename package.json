@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "node -r tsconfig-paths/register dist/server.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -19,7 +19,11 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "build:admin": "cd admin-ui && npm run build",
+    "dev:admin": "cd admin-ui && npm run dev",
+    "build:all": "npm run build && npm run build:admin",
+    "start:admin": "tsx src/admin-server.ts"
   },
   "keywords": [
     "whatsapp",
@@ -37,7 +41,9 @@
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
     "qrcode-terminal": "^0.12.0",
+    "tsconfig-paths": "^4.2.0",
     "whatsapp-web.js": "^1.32.0",
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^5.0.0",
@@ -47,6 +53,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.1",
     "@types/jest": "^29.5.14",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.10.6",
     "@types/qrcode-terminal": "^0.12.2",
     "@types/supertest": "^6.0.3",

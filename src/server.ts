@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import app from './app';
-import logger from '@config/logger';
-import prisma from '@config/database';
+import logger from './config/logger';
+import prisma from './config/database';
 import { whatsappBot } from './bot/index';
 
 const PORT = process.env.PORT || 3000;

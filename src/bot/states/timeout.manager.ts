@@ -1,4 +1,4 @@
-import logger from '@config/logger';
+import logger from '../../config/logger';
 import { SessionManager } from './session.manager';
 import { ConversationState } from './state.types';
 import { whatsappConfig } from '../config/whatsapp.config';

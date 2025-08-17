@@ -7,7 +7,7 @@ import { PhoneUtils } from '../utils/phone.utils';
 import { BookingFlow } from '../flows/booking.flow';
 import { HistoryFlow } from '../flows/history.flow';
 import { HelpFlow } from '../flows/help.flow';
-import logger from '@config/logger';
+import logger from '../../config/logger';
 
 // Import existing services to get customer name
 import { AuthService } from '@services/auth.service';

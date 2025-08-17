@@ -3,7 +3,7 @@ import { SessionManager } from '../states/session.manager';
 import { MessageFormatter } from '../utils/message.formatter';
 import { ValidationUtils } from '../utils/validation.utils';
 import { WhatsAppService } from '../services/whatsapp.service';
-import logger from '@config/logger';
+import logger from '../../config/logger';
 
 // Import existing services
 import { AuthService } from '@services/auth.service';
