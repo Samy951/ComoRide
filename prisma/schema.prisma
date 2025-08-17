@@ -1,0 +1,156 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id          String   @id @default(cuid())
+  phoneNumber String   @unique
+  name        String
+  rating      Float    @default(5.0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  bookings    Booking[]
+  trips       Trip[]    @relation("CustomerTrips")
+  
+  @@index([phoneNumber])
+}
+
+model Driver {
+  id             String    @id @default(cuid())
+  phoneNumber    String    @unique
+  name           String
+  licenseNumber  String    @unique
+  vehicleType    String
+  vehiclePlate   String
+  rating         Float     @default(5.0)
+  isAvailable    Boolean   @default(true)
+  isOnline       Boolean   @default(false)
+  isVerified     Boolean   @default(false)
+  zones          String[]  // Array of zone names
+  currentLat     Float?
+  currentLng     Float?
+  lastSeenAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  bookings       Booking[]
+  trips          Trip[]    @relation("DriverTrips")
+  
+  @@index([phoneNumber])
+  @@index([isAvailable, isVerified])
+  @@index([isOnline])
+}
+
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+model Booking {
+  id                String        @id @default(cuid())
+  customerId        String
+  driverId          String?
+  pickupAddress     String
+  dropAddress       String
+  pickupLat         Float?
+  pickupLng         Float?
+  dropLat           Float?
+  dropLng           Float?
+  pickupTime        DateTime
+  passengers        Int           @default(1)
+  status            BookingStatus @default(PENDING)
+  notes             String?
+  cancellationReason String?
+  estimatedFare     Float?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  customer          Customer      @relation(fields: [customerId], references: [id])
+  driver            Driver?       @relation(fields: [driverId], references: [id])
+  trip              Trip?
+  
+  @@index([status, pickupTime])
+  @@index([customerId])
+  @@index([driverId])
+}
+
+enum PaymentMethod {
+  CASH
+  ORANGE_MONEY
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model Trip {
+  id             String        @id @default(cuid())
+  bookingId      String        @unique
+  customerId     String
+  driverId       String
+  startTime      DateTime
+  endTime        DateTime?
+  fare           Float
+  distance       Float?        // in kilometers
+  paymentMethod  PaymentMethod @default(CASH)
+  paymentStatus  PaymentStatus @default(PENDING)
+  customerRating Float?
+  driverRating   Float?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  
+  booking        Booking       @relation(fields: [bookingId], references: [id])
+  customer       Customer      @relation("CustomerTrips", fields: [customerId], references: [id])
+  driver         Driver        @relation("DriverTrips", fields: [driverId], references: [id])
+  transaction    Transaction?
+  
+  @@index([customerId])
+  @@index([driverId])
+  @@index([paymentStatus])
+}
+
+model Transaction {
+  id            String        @id @default(cuid())
+  tripId        String        @unique
+  amount        Float
+  paymentMethod PaymentMethod
+  status        PaymentStatus
+  reference     String?       // External payment reference (Orange Money)
+  metadata      Json?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  trip          Trip          @relation(fields: [tripId], references: [id])
+  
+  @@index([status])
+  @@index([reference])
+}
+
+model UserSession {
+  id               String    @id @default(cuid())
+  phoneNumber      String    @unique
+  currentState     String    @default("MENU")
+  conversationData Json?
+  lastMessageAt    DateTime  @default(now())
+  timeoutCount     Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  @@index([phoneNumber])
+  @@index([lastMessageAt])
+}

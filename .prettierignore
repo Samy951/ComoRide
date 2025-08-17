@@ -1,0 +1,9 @@
+dist
+node_modules
+coverage
+*.log
+.env
+.env.*
+prisma/migrations
+*.min.js
+*.min.css
