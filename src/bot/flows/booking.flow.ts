@@ -295,37 +295,50 @@ ${MessageFormatter.formatWelcomeMenu()}`;
   }
 
   private async startDriverMatching(phoneNumber: string, bookingId: string): Promise<void> {
-    // This would typically involve:
-    // 1. Finding available drivers in the area
-    // 2. Sending booking notifications to drivers
-    // 3. Waiting for driver acceptance
-    // 4. Updating booking status
-    
-    // For now, simulate the process
-    setTimeout(async () => {
-      try {
-        // Simulate driver found (in real implementation, this would be event-driven)
-        const message = MessageFormatter.formatDriverFound(
-          'Ahmed Mohamed',
-          'Toyota Corolla - KM 123 AB',
-          4.8
-        );
-        
-        await this.whatsappService.sendMessage(phoneNumber, message);
-        await this.sessionManager.resetSession(phoneNumber);
-        
-        logger.info('Driver found and assigned', {
-          phoneNumber: this.maskPhone(phoneNumber),
-          bookingId
-        });
-      } catch (error) {
-        logger.error('Failed to notify driver found', {
-          phoneNumber: this.maskPhone(phoneNumber),
-          bookingId,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-      }
-    }, 15000); // Simulate 15 second wait
+    try {
+      // TICKET-007: Utiliser le vrai système de matching
+      const { MatchingService } = await import('../../services/matching.service');
+      const matchingService = MatchingService.getInstance();
+      
+      // Démarrer le processus de matching complet
+      const matchingResult = await matchingService.startMatching(bookingId, {
+        priorityMode: 'RECENT_ACTIVITY'
+      });
+      
+      logger.info('Matching process initiated', {
+        phoneNumber: this.maskPhone(phoneNumber),
+        bookingId,
+        success: matchingResult.success,
+        driversNotified: matchingResult.driversNotified,
+        errors: matchingResult.errors.length,
+        matchingMetricsId: matchingResult.matchingMetricsId
+      });
+      
+      // Le système de matching gère automatiquement :
+      // - Notification de tous les chauffeurs disponibles
+      // - Timeouts individuels (30s) et globaux (5min)
+      // - Notifications en temps réel au client
+      // - Assignation atomique avec verrouillage optimiste
+      // - Métriques et monitoring
+      
+    } catch (error) {
+      logger.error('Failed to start driver matching', {
+        phoneNumber: this.maskPhone(phoneNumber),
+        bookingId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      
+      // Notifier le client en cas d'erreur
+      const errorMessage = `❌ *ERREUR RECHERCHE CHAUFFEUR*
+
+Une erreur s'est produite lors de la recherche de chauffeur.
+Veuillez réessayer dans quelques instants.
+
+*1* - Réessayer maintenant
+*0* - Retour au menu`;
+      
+      await this.whatsappService.sendMessage(phoneNumber, errorMessage);
+    }
   }
 
   private async getOrCreateCustomer(phoneNumber: string): Promise<any> {

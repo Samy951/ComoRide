@@ -6,7 +6,7 @@ import {
   AcceptBookingResponse, 
   CancelBookingResponse 
 } from '../types/api.types';
-import { DriverNotificationService } from '../bot/services/driver-notification.service';
+// Removed DriverNotificationService direct import - now using MatchingService
 import logger from '../config/logger';
 
 const prisma = new PrismaClient();
@@ -46,31 +46,29 @@ export class BookingService {
       }
     });
 
-    // Notify available drivers
+    // NOUVEAU: Utiliser MatchingService au lieu de DriverNotificationService directement
     try {
-      const driverNotificationService = DriverNotificationService.getInstance();
-      const fullBooking = await prisma.booking.findUnique({
-        where: { id: booking.id }
+      const { MatchingService } = await import('./matching.service');
+      const matchingService = MatchingService.getInstance();
+      
+      const matchingResult = await matchingService.startMatching(booking.id, {
+        maxDistance: undefined, // Pas de limite - broadcaster à TOUS
+        priorityMode: 'RECENT_ACTIVITY' // Selon spec
       });
       
-      if (fullBooking) {
-        const result = await driverNotificationService.broadcastToAvailableDrivers(fullBooking, {
-          maxDrivers: 5,
-          maxDistance: 20 // 20km radius initially
-        });
-        
-        logger.info('Driver notification broadcast completed', {
-          bookingId: booking.id,
-          notifiedDrivers: result.notifiedDrivers,
-          errors: result.errors.length
-        });
-      }
+      logger.info('Matching process initiated', {
+        bookingId: booking.id,
+        success: matchingResult.success,
+        driversNotified: matchingResult.driversNotified,
+        errors: matchingResult.errors.length,
+        matchingMetricsId: matchingResult.matchingMetricsId
+      });
     } catch (error) {
-      logger.error('Failed to notify drivers for new booking', {
+      logger.error('Failed to start matching for new booking', {
         bookingId: booking.id,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
-      // Don't fail booking creation if notification fails
+      // Don't fail booking creation if matching fails
     }
 
     return {
@@ -166,17 +164,7 @@ export class BookingService {
       }
     });
 
-    // Notify driver notification service of acceptance
-    try {
-      const driverNotificationService = DriverNotificationService.getInstance();
-      await driverNotificationService.confirmBookingAcceptance(bookingId, driverId);
-    } catch (error) {
-      logger.error('Failed to confirm booking acceptance in notification service', {
-        bookingId,
-        driverId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
+    // Note: Driver notification service acceptance confirmation now handled by MatchingService
 
     return {
       id: updatedBooking.id,
@@ -205,6 +193,27 @@ export class BookingService {
       return null;
     }
 
+    // NOUVEAU: Annuler le matching actif si booking est PENDING
+    if (booking.status === BookingStatus.PENDING) {
+      try {
+        const { MatchingService } = await import('./matching.service');
+        const matchingService = MatchingService.getInstance();
+        
+        await matchingService.cancelMatching(bookingId, data.reason);
+        
+        logger.info('Matching cancelled for booking cancellation', {
+          bookingId,
+          reason: data.reason
+        });
+      } catch (error) {
+        logger.error('Failed to cancel matching for booking cancellation', {
+          bookingId,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        // Continue with booking cancellation even if matching cancellation fails
+      }
+    }
+
     const updatedBooking = await prisma.booking.update({
       where: { id: bookingId },
       data: {
@@ -217,6 +226,12 @@ export class BookingService {
         cancellationReason: true,
         updatedAt: true
       }
+    });
+
+    logger.info('Booking cancelled successfully', {
+      bookingId,
+      reason: data.reason,
+      previousStatus: booking.status
     });
 
     return {

@@ -52,7 +52,8 @@ export class DriverNotificationService {
       logger.info('Starting driver broadcast for booking', {
         bookingId: booking.id,
         pickupAddress: booking.pickupAddress,
-        estimatedFare: booking.estimatedFare
+        estimatedFare: booking.estimatedFare,
+        options
       });
 
       // Find available drivers in the area
@@ -72,14 +73,14 @@ export class DriverNotificationService {
         };
       }
 
-      // Sort drivers by distance (if coordinates available)
-      const sortedDrivers = this.sortDriversByDistance(availableDrivers);
+      // Sort drivers by lastSeenAt DESC (plus récents d'abord) - CHANGEMENT selon spec
+      const sortedDrivers = this.sortDriversByRecentActivity(availableDrivers);
       
-      // Limit number of drivers to notify
-      const maxDrivers = options.maxDrivers || 5;
+      // CHANGEMENT: Supprimer limite maxDrivers par défaut - broadcaster à TOUS
+      const maxDrivers = options.maxDrivers || availableDrivers.length; // Pas de limite par défaut
       const driversToNotify = sortedDrivers.slice(0, maxDrivers);
 
-      logger.info('Found drivers to notify', {
+      logger.info('Broadcasting to ALL available drivers', {
         bookingId: booking.id,
         totalAvailable: availableDrivers.length,
         willNotify: driversToNotify.length,
@@ -112,8 +113,7 @@ export class DriverNotificationService {
         }
       });
 
-      // Set global timeout for this booking
-      this.setBookingTimeout(booking.id, 30000);
+      // SUPPRIMÉ: Ne plus gérer les timeouts ici - c'est maintenant géré par MatchingService
 
       const finalResult = {
         notifiedDrivers: successfulDriverIds.length,
@@ -124,7 +124,8 @@ export class DriverNotificationService {
       logger.info('Driver broadcast completed', {
         bookingId: booking.id,
         notifiedDrivers: finalResult.notifiedDrivers,
-        errors: finalResult.errors.length
+        errors: finalResult.errors.length,
+        broadcastToAll: true
       });
 
       return finalResult;
@@ -200,8 +201,7 @@ export class DriverNotificationService {
 
   async confirmBookingAcceptance(bookingId: string, driverId: string): Promise<void> {
     try {
-      // Cancel timeout for this booking
-      this.clearBookingTimeout(bookingId);
+      // Note: Timeout management now handled by TimeoutManager in MatchingService
 
       // Notify other drivers that booking is taken
       await this.notifyOtherDriversBookingTaken(bookingId, driverId);
@@ -280,20 +280,15 @@ export class DriverNotificationService {
     return driversWithDistance;
   }
 
-  private sortDriversByDistance(
+  // Méthode conservée pour rétrocompatibilité mais non utilisée dans TICKET-007
+  // private sortDriversByDistance - remplacée par sortDriversByRecentActivity
+
+  // NOUVEAU: Tri par activité récente (selon spec)
+  private sortDriversByRecentActivity(
     drivers: DriverWithDistance[]
   ): DriverWithDistance[] {
     return drivers.sort((a, b) => {
-      // Drivers with distance info first, sorted by distance
-      if (a.distance && b.distance) {
-        return a.distance - b.distance;
-      }
-      
-      // Drivers with distance info come before those without
-      if (a.distance && !b.distance) return -1;
-      if (!a.distance && b.distance) return 1;
-      
-      // If no distance info, sort by lastSeenAt (most recent first)
+      // Priorité absolue à lastSeenAt (plus récents d'abord)
       const aLastSeen = a.lastSeenAt || new Date(0);
       const bLastSeen = b.lastSeenAt || new Date(0);
       return bLastSeen.getTime() - aLastSeen.getTime();
@@ -342,32 +337,7 @@ export class DriverNotificationService {
     return degrees * (Math.PI / 180);
   }
 
-  private setBookingTimeout(bookingId: string, timeoutMs: number): void {
-    // Clear existing timeout if any
-    this.clearBookingTimeout(bookingId);
-    
-    // Set new timeout
-    const timeout = setTimeout(async () => {
-      await this.handleBookingTimeout(bookingId);
-    }, timeoutMs);
-    
-    this.notificationTimeouts.set(bookingId, timeout);
-    
-    logger.debug('Booking timeout set', {
-      bookingId,
-      timeoutMs
-    });
-  }
-
-  private clearBookingTimeout(bookingId: string): void {
-    const timeout = this.notificationTimeouts.get(bookingId);
-    if (timeout) {
-      clearTimeout(timeout);
-      this.notificationTimeouts.delete(bookingId);
-      
-      logger.debug('Booking timeout cleared', { bookingId });
-    }
-  }
+  // Méthodes de timeout supprimées - gestion maintenant dans TimeoutManager (TICKET-007)
 
   private async notifyOtherDriversBookingTaken(bookingId: string, acceptingDriverId: string): Promise<void> {
     if (!this.whatsappService) {
@@ -375,24 +345,24 @@ export class DriverNotificationService {
     }
 
     try {
-      // Find drivers who might have been notified about this booking
-      const driversToNotify = await prisma.driver.findMany({
+      // AMÉLIORATION: Utiliser BookingNotification pour savoir QUI notifier précisément
+      const notifiedDrivers = await prisma.bookingNotification.findMany({
         where: {
-          isAvailable: true,
-          isVerified: true,
-          id: { not: acceptingDriverId }
+          bookingId,
+          driverId: { not: acceptingDriverId },
+          response: null // Seulement ceux qui n'ont pas encore répondu
         },
-        select: {
-          phoneNumber: true
+        include: {
+          driver: {
+            select: { phoneNumber: true }
+          }
         }
       });
 
-      // This is a simplified approach - in production you'd track which drivers
-      // were actually notified for this specific booking
       const message = `ℹ️ La course a été acceptée par un autre chauffeur.`;
 
-      const notifications = driversToNotify.map(driver =>
-        this.whatsappService!.sendMessage(driver.phoneNumber, message)
+      const notifications = notifiedDrivers.map(notification =>
+        this.whatsappService!.sendMessage(notification.driver.phoneNumber, message)
       );
 
       await Promise.allSettled(notifications);
@@ -400,7 +370,7 @@ export class DriverNotificationService {
       logger.info('Notified other drivers of booking acceptance', {
         bookingId,
         acceptingDriverId,
-        notifiedDrivers: driversToNotify.length
+        notifiedDrivers: notifiedDrivers.length
       });
     } catch (error) {
       logger.error('Failed to notify other drivers of booking acceptance', {

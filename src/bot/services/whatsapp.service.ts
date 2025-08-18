@@ -5,6 +5,7 @@ import { whatsappConfig } from '../config/whatsapp.config';
 import { PhoneUtils } from '../utils/phone.utils';
 
 export class WhatsAppService {
+  private static instance: WhatsAppService;
   private client!: Client;
   private isReady: boolean = false;
   private isConnecting: boolean = false;
@@ -15,6 +16,13 @@ export class WhatsAppService {
 
   constructor() {
     this.initializeClient();
+  }
+
+  static getInstance(): WhatsAppService {
+    if (!WhatsAppService.instance) {
+      WhatsAppService.instance = new WhatsAppService();
+    }
+    return WhatsAppService.instance;
   }
 
   private initializeClient(): void {
@@ -230,6 +238,8 @@ export class WhatsAppService {
   isConnected(): boolean {
     return this.isReady;
   }
+
+  // Méthode isReady() déjà définie via propriété avec même nom
 
   async getConnectionState(): Promise<string> {
     if (!this.client) {

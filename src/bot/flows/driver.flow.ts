@@ -440,7 +440,7 @@ Vous pouvez maintenant réserver comme un client :`;
 
   private async handleBookingAcceptance(phoneNumber: string, bookingId: string): Promise<void> {
     try {
-      // Get driver and booking
+      // Get driver info
       const driver = await prisma.driver.findUnique({
         where: { phoneNumber },
         select: { id: true, name: true }
@@ -451,40 +451,36 @@ Vous pouvez maintenant réserver comme un client :`;
         return;
       }
 
-      // Check if booking is still available
-      const booking = await prisma.booking.findUnique({
-        where: { id: bookingId },
-        include: { customer: { select: { name: true, phoneNumber: true } } }
-      });
+      // NOUVEAU: Utiliser MatchingService pour gestion atomique
+      const { MatchingService } = await import('../../services/matching.service');
+      const matchingService = MatchingService.getInstance();
 
-      if (!booking || booking.status !== 'PENDING') {
-        const message = `⚠️ *COURSE DÉJÀ ASSIGNÉE*
-Cette course a été acceptée par un autre chauffeur.
-Retour au menu...`;
-        
-        await this.whatsappService.sendMessage(phoneNumber, message);
-        await this.resetToDriverMenu(phoneNumber);
-        return;
-      }
-
-      // Assign booking to driver
-      await prisma.booking.update({
-        where: { id: bookingId },
-        data: {
-          driverId: driver.id,
-          status: 'ACCEPTED'
+      const responseResult = await matchingService.handleDriverResponse(
+        bookingId,
+        driver.id,
+        {
+          type: 'ACCEPT',
+          timestamp: new Date(),
+          responseTime: 0 // Calculé côté service si nécessaire
         }
-      });
+      );
 
-      // Send confirmation to driver
-      const pickupTime = booking.pickupTime.toLocaleString('fr-FR', {
-        day: '2-digit',
-        month: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      if (responseResult.success && responseResult.action === 'ASSIGNED') {
+        // Course assignée avec succès
+        const booking = await prisma.booking.findUnique({
+          where: { id: bookingId },
+          include: { customer: { select: { name: true, phoneNumber: true } } }
+        });
 
-      const confirmMessage = `✅ *COURSE CONFIRMÉE*
+        if (booking) {
+          const pickupTime = booking.pickupTime.toLocaleString('fr-FR', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+
+          const confirmMessage = `✅ *COURSE CONFIRMÉE*
 
 👤 **Client**: ${booking.customer.name}
 📞 **Téléphone**: ${booking.customer.phoneNumber}
@@ -498,26 +494,47 @@ Retour au menu...`;
 *3* - Problème/Annulation
 *0* - Retour menu`;
 
-      await this.whatsappService.sendMessage(phoneNumber, confirmMessage);
-      
-      // Notify customer that driver is assigned
-      const customerMessage = `✅ *CHAUFFEUR TROUVÉ !*
+          await this.whatsappService.sendMessage(phoneNumber, confirmMessage);
+          
+          logger.info('Booking accepted by driver via MatchingService', {
+            phoneNumber: PhoneUtils.maskPhoneNumber(phoneNumber),
+            bookingId,
+            driverName: driver.name
+          });
+        }
+      } else if (responseResult.action === 'ALREADY_TAKEN') {
+        // Course déjà prise par un autre chauffeur
+        const message = `⚠️ *COURSE DÉJÀ ASSIGNÉE*
 
-🚗 **Chauffeur**: ${driver.name}
-📞 **Contact**: ${phoneNumber}
-⏰ **Pickup**: ${pickupTime}
+Cette course a été acceptée par un autre chauffeur.
+Retour au menu...`;
+        
+        await this.whatsappService.sendMessage(phoneNumber, message);
+        
+        logger.info('Driver attempted to accept already taken booking', {
+          phoneNumber: PhoneUtils.maskPhoneNumber(phoneNumber),
+          bookingId,
+          driverName: driver.name
+        });
+      } else {
+        // Autre erreur
+        const message = `❌ *ERREUR ACCEPTATION*
 
-Votre chauffeur vous contactera bientôt !`;
-      
-      await this.whatsappService.sendMessage(booking.customer.phoneNumber, customerMessage);
+${responseResult.message}
+Retour au menu...`;
+        
+        await this.whatsappService.sendMessage(phoneNumber, message);
+        
+        logger.warn('Driver booking acceptance failed', {
+          phoneNumber: PhoneUtils.maskPhoneNumber(phoneNumber),
+          bookingId,
+          action: responseResult.action,
+          message: responseResult.message
+        });
+      }
       
       await this.resetToDriverMenu(phoneNumber);
       
-      logger.info('Booking accepted by driver', {
-        phoneNumber: PhoneUtils.maskPhoneNumber(phoneNumber),
-        bookingId,
-        driverName: driver.name
-      });
     } catch (error) {
       logger.error('Failed to handle booking acceptance', {
         phoneNumber: PhoneUtils.maskPhoneNumber(phoneNumber),
@@ -531,14 +548,41 @@ Votre chauffeur vous contactera bientôt !`;
 
   private async handleBookingRefusal(phoneNumber: string, bookingId: string): Promise<void> {
     try {
+      // Get driver info
+      const driver = await prisma.driver.findUnique({
+        where: { phoneNumber },
+        select: { id: true, name: true }
+      });
+
+      if (!driver) {
+        await this.handleDriverNotFound(phoneNumber);
+        return;
+      }
+
+      // NOUVEAU: Utiliser MatchingService pour tracking proper
+      const { MatchingService } = await import('../../services/matching.service');
+      const matchingService = MatchingService.getInstance();
+
+      const responseResult = await matchingService.handleDriverResponse(
+        bookingId,
+        driver.id,
+        {
+          type: 'REJECT',
+          timestamp: new Date(),
+          responseTime: 0
+        }
+      );
+
       const message = `❌ Course refusée`;
       await this.whatsappService.sendMessage(phoneNumber, message);
       
       await this.resetToDriverMenu(phoneNumber);
       
-      logger.info('Booking refused by driver', {
+      logger.info('Booking refused by driver via MatchingService', {
         phoneNumber: PhoneUtils.maskPhoneNumber(phoneNumber),
-        bookingId
+        bookingId,
+        driverName: driver.name,
+        responseSuccess: responseResult.success
       });
     } catch (error) {
       logger.error('Failed to handle booking refusal', {

@@ -45,11 +45,13 @@ model Driver {
   
   bookings       Booking[]
   trips          Trip[]    @relation("DriverTrips")
+  notifications  BookingNotification[]
   
   @@index([phoneNumber])
   @@index([isAvailable, isVerified])
   @@index([isOnline])
   @@index([isActive])
+  @@index([lastSeenAt])
 }
 
 enum BookingStatus {
@@ -76,16 +78,20 @@ model Booking {
   notes             String?
   cancellationReason String?
   estimatedFare     Float?
+  version           Int           @default(1)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   
   customer          Customer      @relation(fields: [customerId], references: [id])
   driver            Driver?       @relation(fields: [driverId], references: [id])
   trip              Trip?
+  notifications     BookingNotification[]
+  metrics           MatchingMetrics?
   
   @@index([status, pickupTime])
   @@index([customerId])
   @@index([driverId])
+  @@index([version])
 }
 
 enum PaymentMethod {
@@ -155,4 +161,55 @@ model UserSession {
   
   @@index([phoneNumber])
   @@index([lastMessageAt])
+}
+
+enum NotificationResponse {
+  ACCEPTED
+  REJECTED
+  TIMEOUT
+}
+
+enum MatchingStatus {
+  ACTIVE
+  MATCHED
+  TIMEOUT
+  CANCELLED
+}
+
+model BookingNotification {
+  id                 String               @id @default(cuid())
+  bookingId          String
+  driverId           String
+  sentAt             DateTime             @default(now())
+  respondedAt        DateTime?
+  response           NotificationResponse?
+  notificationMethod String               @default("WHATSAPP")
+  createdAt          DateTime             @default(now())
+  
+  booking            Booking              @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  driver             Driver               @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  @@unique([bookingId, driverId])
+  @@index([sentAt])
+  @@index([response])
+  @@index([bookingId])
+  @@index([driverId])
+}
+
+model MatchingMetrics {
+  id                   String         @id @default(cuid())
+  bookingId            String         @unique
+  totalDriversNotified Int
+  totalDriversResponded Int           @default(0)
+  acceptedAt           DateTime?
+  timeToMatch          Int?           // en secondes
+  finalStatus          MatchingStatus @default(ACTIVE)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  
+  booking              Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  
+  @@index([finalStatus])
+  @@index([createdAt])
+  @@index([timeToMatch])
 }
